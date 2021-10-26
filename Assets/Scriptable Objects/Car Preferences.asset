@@ -12,5 +12,5 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b70de4896be384f4382e13f5910a2742, type: 3}
   m_Name: Car Preferences
   m_EditorClassIdentifier: 
-  _speed: 0
-  _rotationSpeed: 50
+  _speed: 2
+  _rotationSpeed: 6
