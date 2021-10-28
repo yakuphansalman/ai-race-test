@@ -9,6 +9,12 @@ public class AI_CarController : MonoBehaviour
     private float _speed, _rotationSpeed;
     private float _horizontalMultiplier,_verticalMultiplier;
 
+    private bool[] _priorities;
+    public bool p1;
+    public bool p2;
+    public bool p3;
+
+
     public Vector3 showChecker;
 
     private Ray[] _rays;
@@ -17,6 +23,11 @@ public class AI_CarController : MonoBehaviour
 
     private void Start()
     {
+        _priorities = new bool[3];
+        
+        _priorities[2] = true;
+        _priorities[0] = true;
+
         _speed = _carPreferences.Speed;
         
         _rays = new Ray[8];
@@ -25,7 +36,11 @@ public class AI_CarController : MonoBehaviour
 
     private void Update()
     {
+        Prioritize(3);
+
         Move();
+
+        CastRays();
 
         CheckObstacles();
     }
@@ -33,9 +48,8 @@ public class AI_CarController : MonoBehaviour
     {
         transform.position += transform.forward * _speed * Time.deltaTime;
     }
-    private void CheckObstacles()
+    private void CastRays()
     {
-        //Cast the rays and hits
         for (int i = 0; i < 8; i++)
         {
             Physics.Raycast(_rays[i], out _hits[i], 4f);
@@ -79,17 +93,21 @@ public class AI_CarController : MonoBehaviour
                 _verticalMultiplier = -1;
                 _horizontalMultiplier = -1;
             }
-            if (i == 7)//REar Right
+            if (i == 7)//Rear Right
             {
                 _verticalMultiplier = -1;
                 _horizontalMultiplier = 1;
             }
             _rays[i] = new Ray(transform.position, (transform.forward * _verticalMultiplier + transform.right * _horizontalMultiplier).normalized);
-            Debug.DrawRay(_rays[i].origin,_rays[i].direction*4);
+            Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4);
 
         }
         #endregion
 
+    }
+    private void CheckObstacles()
+    {
+        
         #region Scenarios
 
         #region Mutual Scenario
@@ -189,5 +207,32 @@ public class AI_CarController : MonoBehaviour
         #endregion
 
         #endregion
+
+        
+    }
+    private void Prioritize(int prioritySize)
+    {
+        p1 = _priorities[0];
+        p2 = _priorities[1];
+        p3 = _priorities[2];
+
+        for (int i = 0; i < prioritySize; i++)
+        {
+            if (_priorities[i] == true)//The member has to be true boolean which we have to check
+            {
+                if (i != prioritySize -1)//Make sure its not the last member
+                {
+                    _priorities[i + 1] = false;//Other members which has less priority have to be false
+                }
+            }
+            if (i != 0)//Make sure its not first member
+            {
+                if (_priorities[i - 1] == true)//Check the member which has great priority have to be true;
+                {
+                    _priorities[i] = false;//Make sure it's false;
+                }
+            }
+        }
+
     }
 }
