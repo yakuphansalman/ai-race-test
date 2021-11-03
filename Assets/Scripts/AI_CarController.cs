@@ -8,35 +8,28 @@ public class AI_CarController : MonoBehaviour
 
     private float _speed, _rotationSpeed;
     private float _horizontalMultiplier,_verticalMultiplier;
-
-    private bool[] _priorities;
-    public bool p1;
-    public bool p2;
-    public bool p3;
-
+    private float[] _objectDeltaMagnitudes;
 
     public Vector3 showChecker;
-
+    private Vector3 _activeDelta;
+    private Vector3[] _objectDeltas;
+ 
     private Ray[] _rays;
     private RaycastHit[] _hits;
 
 
     private void Start()
     {
-        _priorities = new bool[3];
-        
-        _priorities[2] = true;
-        _priorities[0] = true;
-
         _speed = _carPreferences.Speed;
         
-        _rays = new Ray[8];
-        _hits = new RaycastHit[8];
+        _rays = new Ray[5];
+        _hits = new RaycastHit[5];
+        _objectDeltas = new Vector3[5];
+        _objectDeltaMagnitudes = new float[5];
     }
 
     private void Update()
     {
-        Prioritize(3);
 
         Move();
 
@@ -50,13 +43,13 @@ public class AI_CarController : MonoBehaviour
     }
     private void CastRays()
     {
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 5; i++)
         {
             Physics.Raycast(_rays[i], out _hits[i], 4f);
         }
 
         #region Ray Directions
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 5; i++)
         {
             if (i == 0)//Front
             {
@@ -68,38 +61,30 @@ public class AI_CarController : MonoBehaviour
                 _verticalMultiplier = 0;
                 _horizontalMultiplier = 1;
             }
-            if (i == 2)//Rear
-            {
-                _verticalMultiplier = -1;
-                _horizontalMultiplier = 0;
-            }
-            if (i == 3)//Left
+            if (i == 2)//Left
             {
                 _verticalMultiplier = 0;
                 _horizontalMultiplier = -1;
             }
-            if (i == 4)//Front Right
+            if (i == 3)//Front Right
             {
                 _verticalMultiplier = 1;
                 _horizontalMultiplier = 1;
             }
-            if (i == 5)//Front Left
+            if (i == 4)
             {
                 _verticalMultiplier = 1;
                 _horizontalMultiplier = -1;
-            }
-            if (i == 6)//Rear Left
-            {
-                _verticalMultiplier = -1;
-                _horizontalMultiplier = -1;
-            }
-            if (i == 7)//Rear Right
-            {
-                _verticalMultiplier = -1;
-                _horizontalMultiplier = 1;
             }
             _rays[i] = new Ray(transform.position, (transform.forward * _verticalMultiplier + transform.right * _horizontalMultiplier).normalized);
-            Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4);
+            if (_activeDelta == _objectDeltas[i])
+            {
+                Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4, new Color(255, 0, 0));
+            }
+            else
+            {
+                Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4, new Color(255, 255, 0));
+            }
 
         }
         #endregion
@@ -111,96 +96,84 @@ public class AI_CarController : MonoBehaviour
         #region Scenarios
 
         #region Mutual Scenario
-        for (int i = 0; i < 8; i++)
+        for (int i = 0; i < 5; i++)
         {
-            Vector3 checker;
             if (_hits[i].collider != null)
             {
                 if (_hits[i].collider.gameObject.CompareTag("Obstacle"))
                 {
-                    checker = _hits[i].collider.transform.localPosition - transform.localPosition;
+                    _objectDeltas[i] = _hits[i].collider.transform.localPosition - transform.localPosition;
+                    _objectDeltaMagnitudes[i] = _objectDeltas[i].magnitude;
+                    if (Mathf.Min(_objectDeltaMagnitudes) == _objectDeltaMagnitudes[i])
+                    {
+                        _activeDelta = _objectDeltas[i];
+                    }
                     transform.Rotate(Vector3.up * _rotationSpeed * Time.deltaTime);
                     #region Unmutual Scenarios
 
-                    #region Front Scenario
-                    if (i == 0)
+                    if (_objectDeltas[i] == _activeDelta)
                     {
-                        showChecker = checker;
-                        if (Mathf.Abs(checker.z) <= 3.5f)
+                        #region Front Scenario
+                        if (i == 0)
                         {
-                            _speed = _carPreferences.Speed * 0.3f;
+                            int m1;
+                            Debug.Log("Current Scenario is Front");
+                            if (_objectDeltaMagnitudes[1] > _objectDeltaMagnitudes[2] || _objectDeltaMagnitudes[3] > _objectDeltaMagnitudes[4])// Check that right delta grater than left delta
+                            {
+                                m1 = 1;
+                            }
+                            else if(_objectDeltaMagnitudes[1] <= _objectDeltaMagnitudes[2] || _objectDeltaMagnitudes[3] <= _objectDeltaMagnitudes[4])
+                            {
+                                m1 = -1;
+                            }
+                            else
+                            {
+                                m1 = 1;
+                            }
+                            _speed = _carPreferences.Speed / _objectDeltaMagnitudes[i];
+                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * m1;
+                            
                         }
+                        #endregion
+
+                        #region Left And Right Scenarios
+
+                        if (i == 1)//Right
+                        {
+                            Debug.Log("Current Scenario is Right");
+                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * -1;
+                        }
+                        if (i == 2)//Left
+                        {
+                            Debug.Log("Current Scenario is Left");
+                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i];
+                        }
+
+                        #endregion
+
+                        #region Front Right And Front Left Scenarios
+
+                        if (i == 3)//Front Right
+                        {
+                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * -1;
+                        }
+                        if (i == 4)//Front Left
+                        {
+                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i];
+                        }
+
+                        #endregion
                     }
-                    #endregion
-
-                    #region Left And Right Scenarios
-
-                    if (i == 1)//Right
-                    {
-                        if (Mathf.Abs(checker.x) > 2.5f && Mathf.Abs(checker.x) <= 4f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 0.6f * -1;
-                        }
-                        if (Mathf.Abs(checker.x) <= 2.5f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 1.8f * -1;
-                        }
-                    }
-                    if (i == 3)//Left
-                    {
-                        showChecker = checker;
-                        if (Mathf.Abs(checker.x) > 2.5f && Mathf.Abs(checker.x) <= 3f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 0.6f;
-                        }
-                        if (Mathf.Abs(checker.x) <= 2.5f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 1.8f;
-                        }
-                    }
-
-                    #endregion
-
-                    #region Front Right And Front Left Scenarios
-
-                    if (i == 4)//Front Right
-                    {
-                        if (Mathf.Abs(checker.x) > 1.5f && Mathf.Abs(checker.x) <= 3f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 0.6f;
-                        }
-                        if (Mathf.Abs(checker.x) <= 1.5f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 2.4f;
-                        }
-                    }
-                    if (i == 5)//Front Left
-                    {
-                        if (Mathf.Abs(checker.x) > 1.5f && Mathf.Abs(checker.x) <= 3f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 0.6f * -1;
-                        }
-                        if (Mathf.Abs(checker.x) <= 1.5f)
-                        {
-                            _rotationSpeed = _carPreferences.RotationSpeed * 2.4f * -1;
-                        }
-                    }
-
-                    #endregion
 
                     #endregion
                 }
             }
             else
             {
-                foreach (RaycastHit hit in _hits)
-                {
-                    checker = Vector3.zero;
-                    if (i == 0)
-                    {
-                        _rotationSpeed = 0;
-                    }
-                }
+                _objectDeltaMagnitudes[i] = Random.Range(7f, 10f);
+                //Check when hit that chosen is none and set its object magnitude value as random float value 
+                //The reason of doing this is the conditions at 121 and 125 has to be like normal values unlike 0f or 1000f
+                //If the value is 0f , condition at 107 can not be defined
             }
 
         }
@@ -209,30 +182,5 @@ public class AI_CarController : MonoBehaviour
         #endregion
 
         
-    }
-    private void Prioritize(int prioritySize)
-    {
-        p1 = _priorities[0];
-        p2 = _priorities[1];
-        p3 = _priorities[2];
-
-        for (int i = 0; i < prioritySize; i++)
-        {
-            if (_priorities[i] == true)//The member has to be true boolean which we have to check
-            {
-                if (i != prioritySize -1)//Make sure its not the last member
-                {
-                    _priorities[i + 1] = false;//Other members which has less priority have to be false
-                }
-            }
-            if (i != 0)//Make sure its not first member
-            {
-                if (_priorities[i - 1] == true)//Check the member which has great priority have to be true;
-                {
-                    _priorities[i] = false;//Make sure it's false;
-                }
-            }
-        }
-
     }
 }
