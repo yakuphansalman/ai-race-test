@@ -13,4 +13,4 @@ MonoBehaviour:
   m_Name: Car Preferences
   m_EditorClassIdentifier: 
   _speed: 5
-  _rotationSpeed: 100
+  _rotationSpeed: 300
