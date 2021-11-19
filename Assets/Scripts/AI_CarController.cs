@@ -2,16 +2,18 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
+[System.Serializable]
 public class AI_CarController : MonoBehaviour
 {
     public SO_Car _carPreferences;
+
+    private int _rayCount = 5;
+    [SerializeField] private int _activeScenario;
 
     private float _speed, _rotationSpeed;
     private float _horizontalMultiplier,_verticalMultiplier;
     private float[] _objectDeltaMagnitudes;
 
-    public Vector3 showChecker;
-    private Vector3 _activeDelta;
     private Vector3[] _objectDeltas;
  
     private Ray[] _rays;
@@ -22,15 +24,14 @@ public class AI_CarController : MonoBehaviour
     {
         _speed = _carPreferences.Speed;
         
-        _rays = new Ray[5];
-        _hits = new RaycastHit[5];
-        _objectDeltas = new Vector3[5];
-        _objectDeltaMagnitudes = new float[5];
+        _rays = new Ray[_rayCount];
+        _hits = new RaycastHit[_rayCount];
+        _objectDeltas = new Vector3[_rayCount];
+        _objectDeltaMagnitudes = new float[_rayCount];
     }
 
     private void Update()
     {
-
         Move();
 
         CastRays();
@@ -43,13 +44,13 @@ public class AI_CarController : MonoBehaviour
     }
     private void CastRays()
     {
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < _rayCount; i++)
         {
             Physics.Raycast(_rays[i], out _hits[i], 4f);
         }
 
         #region Ray Directions
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < _rayCount; i++)
         {
             if (i == 0)//Front
             {
@@ -71,13 +72,14 @@ public class AI_CarController : MonoBehaviour
                 _verticalMultiplier = 1;
                 _horizontalMultiplier = 1;
             }
-            if (i == 4)
+            if (i == 4)//Front Left
             {
                 _verticalMultiplier = 1;
                 _horizontalMultiplier = -1;
             }
             _rays[i] = new Ray(transform.position, (transform.forward * _verticalMultiplier + transform.right * _horizontalMultiplier).normalized);
-            if (_activeDelta == _objectDeltas[i])
+
+            if (i == _activeScenario)
             {
                 Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4, new Color(255, 0, 0));
             }
@@ -85,7 +87,6 @@ public class AI_CarController : MonoBehaviour
             {
                 Debug.DrawRay(_rays[i].origin, _rays[i].direction * 4, new Color(255, 255, 0));
             }
-
         }
         #endregion
 
@@ -96,22 +97,26 @@ public class AI_CarController : MonoBehaviour
         #region Scenarios
 
         #region Mutual Scenario
-        for (int i = 0; i < 5; i++)
+        for (int i = 0; i < _rayCount; i++)
         {
+            _objectDeltaMagnitudes[i] = _objectDeltas[i].magnitude;
+            if (_objectDeltaMagnitudes[i] == Mathf.Min(_objectDeltaMagnitudes))
+            {
+                _activeScenario = i;
+            }
+            if (_objectDeltaMagnitudes[_activeScenario] == float.NaN)
+            {
+                _activeScenario = Random.Range(0, 6);
+            }
             if (_hits[i].collider != null)
             {
                 if (_hits[i].collider.gameObject.CompareTag("Obstacle"))
                 {
                     _objectDeltas[i] = _hits[i].collider.transform.localPosition - transform.localPosition;
-                    _objectDeltaMagnitudes[i] = _objectDeltas[i].magnitude;
-                    if (Mathf.Min(_objectDeltaMagnitudes) == _objectDeltaMagnitudes[i])
-                    {
-                        _activeDelta = _objectDeltas[i];
-                    }
                     transform.Rotate(Vector3.up * _rotationSpeed * Time.deltaTime);
                     #region Unmutual Scenarios
 
-                    if (_objectDeltas[i] == _activeDelta)
+                    if (i == _activeScenario)
                     {
                         #region Front Scenario
                         if (i == 0)
@@ -131,7 +136,7 @@ public class AI_CarController : MonoBehaviour
                                 m1 = 1;
                             }
                             _speed = _carPreferences.Speed / _objectDeltaMagnitudes[i];
-                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * m1;
+                            _rotationSpeed = _carPreferences.RotationSpeed / (Mathf.Pow(_objectDeltaMagnitudes[i],2) * m1);
                             
                         }
                         #endregion
@@ -141,12 +146,12 @@ public class AI_CarController : MonoBehaviour
                         if (i == 1)//Right
                         {
                             Debug.Log("Current Scenario is Right");
-                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * -1;
+                            _rotationSpeed = _carPreferences.RotationSpeed / (Mathf.Pow(_objectDeltaMagnitudes[i], 2) * -1);
                         }
                         if (i == 2)//Left
                         {
                             Debug.Log("Current Scenario is Left");
-                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i];
+                            _rotationSpeed = _carPreferences.RotationSpeed / Mathf.Pow(_objectDeltaMagnitudes[i], 2);
                         }
 
                         #endregion
@@ -155,11 +160,13 @@ public class AI_CarController : MonoBehaviour
 
                         if (i == 3)//Front Right
                         {
-                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i] * -1;
+                            Debug.Log("Current Scenario is Front Right");
+                            _rotationSpeed = _carPreferences.RotationSpeed / (Mathf.Pow(_objectDeltaMagnitudes[i], 2) * -1);
                         }
                         if (i == 4)//Front Left
                         {
-                            _rotationSpeed = _carPreferences.RotationSpeed / _objectDeltaMagnitudes[i];
+                            Debug.Log("Current Scenario is Front Left");
+                            _rotationSpeed = _carPreferences.RotationSpeed / Mathf.Pow(_objectDeltaMagnitudes[i], 2);
                         }
 
                         #endregion
@@ -167,15 +174,15 @@ public class AI_CarController : MonoBehaviour
 
                     #endregion
                 }
+                else
+                {
+                    _objectDeltas[i] = new Vector3(float.NaN, float.NaN, float.NaN);
+                }
             }
             else
             {
-                _objectDeltaMagnitudes[i] = Random.Range(7f, 10f);
-                //Check when hit that chosen is none and set its object magnitude value as random float value 
-                //The reason of doing this is the conditions at 121 and 125 has to be like normal values unlike 0f or 1000f
-                //If the value is 0f , condition at 107 can not be defined
+                _objectDeltas[i] = new Vector3(float.NaN, float.NaN, float.NaN);
             }
-
         }
         #endregion
 
